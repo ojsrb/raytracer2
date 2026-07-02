@@ -1,0 +1,10 @@
+[package]
+name = "blackhole2"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+winit = "0.30.12"
+pixels = "0.17.1"
+image = "0.25.10"
+rayon = "1.5"
