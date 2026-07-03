@@ -1,4 +1,4 @@
-use std::ops::{Add, Sub, Mul, Div};
+use std::ops::{Add, Div, Mul, Sub};
 
 pub struct Vector3 {
     pub x: f64,
@@ -30,6 +30,13 @@ impl Vector3 {
         } else {
             Self::new(self.x / length, self.y / length, self.z / length)
         }
+    }
+    pub fn reciprocal(&self) -> Self {
+        Self::new(1.0 / self.x, 1.0 / self.y, 1.0 / self.z)
+    }
+
+    pub fn invert(&self) -> Self {
+        Self::new(255.0 - self.x, 255.0 - self.y, 255.0 - self.z)
     }
 }
 
@@ -92,7 +99,14 @@ pub struct Ray {
 
 impl Ray {
     pub fn new(position: Vector3, direction: Vector3, speed: f64) -> Self {
-        Self { position, direction, speed, hit: false, color: Vector3::new(0.0, 0.0, 0.0), brightness: 0.0 }
+        Self {
+            position,
+            direction,
+            speed,
+            hit: false,
+            color: Vector3::new(0.0, 0.0, 0.0),
+            brightness: 0.0,
+        }
     }
 
     pub fn clone(&self) -> Self {
@@ -102,7 +116,7 @@ impl Ray {
             speed: self.speed,
             hit: self.hit,
             color: self.color.clone(),
-            brightness: self.brightness
+            brightness: self.brightness,
         }
     }
 }
@@ -114,11 +128,27 @@ pub struct BlackHole {
 
     pub acretion_disk_r: f64,
     pub color: Vector3,
+
+    pub texture: Option<image::RgbImage>,
 }
 
 impl BlackHole {
-    pub fn new(position: Vector3, mass: f64, min_distance: f64, acretion_disk_r: f64, color: Vector3) -> Self {
-        Self { position, mass, min_distance, acretion_disk_r, color }
+    pub fn new(
+        position: Vector3,
+        mass: f64,
+        min_distance: f64,
+        color: Vector3,
+        texture: Option<image::RgbImage>,
+    ) -> Self {
+        let acretion_disk_r = mass * 5.0;
+        Self {
+            position,
+            mass,
+            min_distance,
+            acretion_disk_r,
+            color: color,
+            texture: texture,
+        }
     }
 
     pub fn intersects_with_disc(&self, ray: &Ray) -> bool {
@@ -127,10 +157,12 @@ impl BlackHole {
         new_direction = new_direction.normalize();
 
         let next_position = ray.position.clone() + new_direction * ray.speed;
-        if (ray.position.y > self.position.y && next_position.y < self.position.y) || (ray.position.y < self.position.y && next_position.y > self.position.y || (ray.position.y - self.position.y).abs() < 0.005) {
+        if (ray.position.y > self.position.y && next_position.y < self.position.y)
+            || (ray.position.y < self.position.y && next_position.y > self.position.y
+                || (ray.position.y - self.position.y).abs() < 0.005)
+        {
             return dir_to_mass.length() < self.acretion_disk_r;
         }
         return false;
     }
-
 }

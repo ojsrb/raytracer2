@@ -7,14 +7,19 @@ fn advance_ray(ray: &mut Ray, scene: &[BlackHole]) -> bool {
     for black_hole in scene {
         let dir_to_mass = black_hole.position.clone() - ray.position.clone();
 
-        ray.direction = (dir_to_mass.clone() * black_hole.mass * 0.0005) + ray.direction.clone();
+        let new_direction = (dir_to_mass.clone().normalize() * black_hole.mass * 0.03)
+            / dir_to_mass.length()
+            + ray.direction.clone();
+        ray.direction = new_direction;
         ray.direction = ray.direction.normalize();
 
         if black_hole.intersects_with_disc(ray) {
             ray.hit = true;
-            ray.color = black_hole.color.clone();
-            ray.brightness =
-                (black_hole.acretion_disk_r - dir_to_mass.length()) / black_hole.acretion_disk_r;
+            let u = (ray.position.x / black_hole.acretion_disk_r + 1.0) / 2.0;
+            let v = (ray.position.z / black_hole.acretion_disk_r + 1.0) / 2.0;
+            ray.color = get_texture_color(&black_hole.texture.clone().unwrap(), u, v);
+            ray.brightness = 1.0;
+            return true;
         } else if dir_to_mass.length() < black_hole.min_distance {
             return true;
         } else if ray.position.z > 100 as f64 {
@@ -28,28 +33,19 @@ fn advance_ray(ray: &mut Ray, scene: &[BlackHole]) -> bool {
 }
 
 pub fn main() {
-    let scene = vec![
-        BlackHole {
-            position: Vector3::new(3.0, 0.3, 10.0),
-            mass: 1.0,
-            min_distance: 0.5,
-            acretion_disk_r: 3.0,
-            color: Vector3::new(0.0, 0.0, 255.0),
-        },
-        // BlackHole {
-        //     position: Vector3::new(-3.0, -0.3, 20.0),
-        //     mass: 4.1,
-        //     min_distance: 0.5,
-        //     acretion_disk_r: 3.0,
-        //     color: Vector3::new(255.0, 0.0, 0.0),
-        // }
-    ];
+    let scene = vec![BlackHole::new(
+        Vector3::new(0.0, 0.3, 10.0),
+        1.0,
+        0.5,
+        Vector3::new(0.0, 0.0, 255.0),
+        Some(image::open("textures/disk.png").unwrap().to_rgb8()),
+    )];
 
     let mut camera = Camera::new(
         Vector3::new(0.0, 0.0, 0.0),
         Vector3::new(0.0, 0.0, 1.0),
-        500,
-        500,
+        3840,
+        2160,
         1.57, // fov in radians
     );
     camera.initialize_rays();
