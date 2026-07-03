@@ -1,6 +1,8 @@
 mod render;
 mod utils;
 use render::*;
+use std::io::Write;
+use std::time::Instant;
 use utils::*;
 
 fn advance_ray(ray: &mut Ray, scene: &[BlackHole]) -> bool {
@@ -22,7 +24,7 @@ fn advance_ray(ray: &mut Ray, scene: &[BlackHole]) -> bool {
             return true;
         } else if dir_to_mass.length() < black_hole.min_distance {
             return true;
-        } else if ray.position.z > 100 as f64 {
+        } else if ray.position.z > 20 as f64 {
             return true;
         }
     }
@@ -38,19 +40,25 @@ pub fn main() {
         1.0,
         0.5,
         Vector3::new(0.0, 0.0, 255.0),
-        Some(image::open("textures/disk.png").unwrap().to_rgb8()),
+        Some(image::open("textures/disk.jpg").unwrap().to_rgb8()),
     )];
 
     let mut camera = Camera::new(
         Vector3::new(0.0, 0.0, 0.0),
         Vector3::new(0.0, 0.0, 1.0),
-        3840,
-        2160,
+        384,
+        216,
         1.57, // fov in radians
     );
     camera.initialize_rays();
 
+    let total_pixels = (camera.width * camera.height) as f64;
+    let start_time = Instant::now();
+    let mut csv_file = std::fs::File::create("timings.csv").unwrap();
+    writeln!(csv_file, "percentage,time_in_seconds").unwrap();
+
     let mut ray_index = 0;
+    let mut last_int_pct = 0u32;
     for row in camera.rays.iter_mut() {
         for ray in row.iter_mut() {
             let mut frames = 0;
@@ -62,10 +70,14 @@ pub fn main() {
                 }
             }
             ray_index += 1;
-            println!(
-                "{}%",
-                (ray_index as f64 / (camera.width * camera.height) as f64) * 100.0
-            );
+            let pct = (ray_index as f64 / total_pixels) * 100.0;
+            let int_pct = pct as u32;
+            if int_pct > last_int_pct {
+                let elapsed = start_time.elapsed().as_secs_f64();
+                writeln!(csv_file, "{},{}", int_pct, elapsed).unwrap();
+                last_int_pct = int_pct;
+                println!("{}%", int_pct);
+            }
         }
     }
 
