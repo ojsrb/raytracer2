@@ -121,6 +121,34 @@ impl Ray {
     }
 }
 
+use noise::{Fbm, NoiseFn, Perlin};
+
+#[derive(Clone)]
+pub struct ProceduralTexture {
+    fbm: Fbm<Perlin>,
+}
+
+impl ProceduralTexture {
+    pub fn new(seed: u32) -> Self {
+        Self {
+            fbm: Fbm::<Perlin>::new(seed),
+        }
+    }
+
+    /// Sample procedural noise at UV coordinates (0..1 range)
+    pub fn sample(&self, r: f64, t: f64) -> f64 {
+        let cart_u = r * t.cos();
+        let cart_v = r * t.sin();
+
+        let noise_value = self.fbm.get([cart_u, cart_v]);
+
+        // Map from [-1, 1] to [0, 1]
+        let t = ((noise_value + 1.0) / 2.0).clamp(0.1, 0.6);
+
+        return t;
+    }
+}
+
 pub struct BlackHole {
     pub position: Vector3,
     pub mass: f64,
@@ -129,7 +157,9 @@ pub struct BlackHole {
     pub acretion_disk_r: f64,
     pub color: Vector3,
 
-    pub texture: Option<image::RgbImage>,
+    pub texture: Option<ProceduralTexture>,
+
+    pub angle: f64,
 }
 
 impl BlackHole {
@@ -138,7 +168,8 @@ impl BlackHole {
         mass: f64,
         min_distance: f64,
         color: Vector3,
-        texture: Option<image::RgbImage>,
+        texture: Option<ProceduralTexture>,
+        angle: f64,
     ) -> Self {
         let acretion_disk_r = mass * 5.0;
         Self {
@@ -148,6 +179,7 @@ impl BlackHole {
             acretion_disk_r,
             color: color,
             texture: texture,
+            angle: angle,
         }
     }
 
