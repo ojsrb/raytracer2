@@ -38,6 +38,14 @@ impl Vector3 {
     pub fn invert(&self) -> Self {
         Self::new(255.0 - self.x, 255.0 - self.y, 255.0 - self.z)
     }
+
+    pub fn brighten(&self, factor: f64) -> Self {
+        Self::new(
+            (self.x * factor).clamp(0.0, 255.0),
+            (self.y * factor).clamp(0.0, 255.0),
+            (self.z * factor).clamp(0.0, 255.0),
+        )
+    }
 }
 
 impl Add for Vector3 {
@@ -143,7 +151,7 @@ impl ProceduralTexture {
         let noise_value = self.fbm.get([cart_u, cart_v]);
 
         // Map from [-1, 1] to [0, 1]
-        let t = ((noise_value + 1.0) / 2.0).clamp(0.1, 0.6);
+        let t = ((noise_value + 1.0) / 2.0).clamp(0.0, 0.6);
 
         return t;
     }

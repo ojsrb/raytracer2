@@ -31,13 +31,14 @@ fn advance_ray(ray: &mut Ray, scene: &[BlackHole]) -> bool {
             shifted_position.y = black_hole.position.y;
 
             let r = shifted_position.length() * 2.0;
-            let theta = shifted_position.z.atan2(shifted_position.x) / 4.0 + angle;
+            let theta = shifted_position.z.atan2(shifted_position.x) / 2.0 + angle;
 
-            let dist_brightness = black_hole.acretion_disk_r / dir_to_mass.length() * 0.4;
+            let dist_brightness = black_hole.acretion_disk_r / dir_to_mass.length();
 
-            ray.brightness =
-                black_hole.texture.as_ref().unwrap().sample(r, theta) + dist_brightness;
-            ray.color = black_hole.color.clone() * ray.brightness;
+            ray.brightness = black_hole.texture.as_ref().unwrap().sample(r, theta) * 0.8
+                + dist_brightness.powf(1.5)
+                - 1.0;
+            ray.color = black_hole.color.clone().brighten(ray.brightness);
             return true;
         } else if dir_to_mass.length() < black_hole.min_distance {
             return true;
@@ -52,28 +53,41 @@ fn advance_ray(ray: &mut Ray, scene: &[BlackHole]) -> bool {
 }
 
 pub fn main() {
+    let args = std::env::args().collect::<Vec<String>>();
+
     let normal_view_pos = Vector3::new(0.0, -1.0, 0.0);
 
     let disk_view_pos = Vector3::new(0.0, -4.0, 2.0);
 
-    let count = 1;
+    let count = args[1].parse::<u32>().unwrap_or(1);
     for i in 0..count {
-        let angle = (i as f64) * (3.14 / count as f64);
+        let angle = (i as f64) * (6.28 / count as f64);
         println!("Rendering angle {} radians", angle);
         let scene = vec![BlackHole::new(
             Vector3::new(0.0, 0.3, 10.0),
             1.0,
             0.5,
-            Vector3::new(239.0, 116.0, 8.0),
+            Vector3::new(239.0, 116.0, 8.0).brighten(0.15),
             Some(ProceduralTexture::new(42)),
             angle,
         )];
 
+        let width: u32;
+        let height: u32;
+
+        if args.len() < 4 {
+            width = 384;
+            height = 216;
+        } else {
+            width = args[2].parse::<u32>().unwrap_or(384);
+            height = args[3].parse::<u32>().unwrap_or(216);
+        }
+
         let mut camera = Camera::new(
             normal_view_pos.clone(),
             Vector3::new(0.0, 0.3, 10.0),
-            384,
-            216,
+            width,
+            height,
             1.57, // fov in radians
         );
         camera.initialize_rays();
