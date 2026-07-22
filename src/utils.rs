@@ -1,5 +1,6 @@
 use std::ops::{Add, Div, Mul, Sub};
 
+#[derive(Copy, Clone)]
 pub struct Vector3 {
     pub x: f64,
     pub y: f64,
@@ -9,14 +10,6 @@ pub struct Vector3 {
 impl Vector3 {
     pub fn new(x: f64, y: f64, z: f64) -> Self {
         Self { x, y, z }
-    }
-
-    pub fn clone(&self) -> Self {
-        Self {
-            x: self.x,
-            y: self.y,
-            z: self.z,
-        }
     }
 
     pub fn length(&self) -> f64 {
@@ -96,6 +89,7 @@ impl Div<f64> for Vector3 {
     }
 }
 
+#[derive(Clone)]
 pub struct Ray {
     pub position: Vector3,
     pub direction: Vector3,
@@ -116,17 +110,6 @@ impl Ray {
             brightness: 0.0,
         }
     }
-
-    pub fn clone(&self) -> Self {
-        Self {
-            position: self.position.clone(),
-            direction: self.direction.clone(),
-            speed: self.speed,
-            hit: self.hit,
-            color: self.color.clone(),
-            brightness: self.brightness,
-        }
-    }
 }
 
 use noise::{Fbm, NoiseFn, Perlin};
@@ -143,10 +126,15 @@ impl ProceduralTexture {
         }
     }
 
-    /// Sample procedural noise at UV coordinates (0..1 range)
-    pub fn sample(&self, r: f64, t: f64) -> f64 {
-        let cart_u = r * t.cos();
-        let cart_v = r * t.sin();
+    /// Sample procedural noise at polar coordinates.
+    /// `t_raw` is the raw atan2 angle (in radians, -π..π).
+    /// `angle` is the black hole rotation offset.
+    pub fn sample(&self, r: f64, t_raw: f64, angle: f64) -> f64 {
+        // Apply 4x angular frequency inside sin/cos so the branch cut
+        // of atan2 is invisible — sin(4θ) is continuous across the cut.
+        let theta = t_raw + angle;
+        let cart_u = r * theta.cos();
+        let cart_v = r * theta.sin();
 
         let noise_value = self.fbm.get([cart_u, cart_v]);
 
@@ -185,24 +173,17 @@ impl BlackHole {
             mass,
             min_distance,
             acretion_disk_r,
-            color: color,
-            texture: texture,
-            angle: angle,
+            color,
+            texture,
+            angle,
         }
     }
 
-    pub fn intersects_with_disc(&self, ray: &Ray) -> bool {
-        let dir_to_mass = self.position.clone() - ray.position.clone();
-        let mut new_direction = (dir_to_mass.clone() * self.mass * 0.0001) + ray.direction.clone();
-        new_direction = new_direction.normalize();
-
-        let next_position = ray.position.clone() + new_direction * ray.speed;
-        if (ray.position.y > self.position.y && next_position.y < self.position.y)
-            || (ray.position.y < self.position.y && next_position.y > self.position.y
-                || (ray.position.y - self.position.y).abs() < 0.005)
-        {
-            return dir_to_mass.length() < self.acretion_disk_r;
-        }
-        return false;
+    /// Gravitational acceleration term added to a ray's direction per step.
+    /// This is the single source of truth for the gravity model used both
+    /// for ray bending and for disc-crossing detection.
+    pub fn acceleration(&self, dir_to_mass: &Vector3) -> Vector3 {
+        let len = dir_to_mass.length();
+        (dir_to_mass.normalize() * self.mass * 0.03) / len
     }
 }

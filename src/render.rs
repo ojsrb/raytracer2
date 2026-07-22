@@ -9,7 +9,7 @@ pub struct Camera {
     pub height: u32,
     pub fov: f64, // in radians
 
-    pub rays: Vec<Vec<Ray>>,
+    pub rays: Vec<Ray>,
 }
 
 impl Camera {
@@ -26,14 +26,20 @@ impl Camera {
 
     pub fn initialize_rays(&mut self) {
         let radians_per_pixel = self.fov / self.width as f64;
+        let w = self.width as f64;
+        let h = self.height as f64;
+        let half_w = w / 2.0;
+        let half_h = h / 2.0;
+
         self.rays.clear();
+        self.rays.reserve((self.width * self.height) as usize);
+
         for y in 0..self.height {
-            let mut row = Vec::new();
+            let y_centered = (y as f64) - half_h;
             for x in 0..self.width {
-                let x_centered = (x as f64) - ((self.width as f64) / 2.0) as f64;
-                let y_centered = (y as f64) - ((self.height as f64) / 2.0) as f64;
-                row.push(Ray::new(
-                    self.position.clone(),
+                let x_centered = (x as f64) - half_w;
+                self.rays.push(Ray::new(
+                    self.position,
                     Vector3::new(
                         self.direction.x + (x_centered * radians_per_pixel).asin(),
                         self.direction.y + (y_centered * radians_per_pixel).asin(),
@@ -42,16 +48,14 @@ impl Camera {
                     0.1,
                 ));
             }
-            self.rays.push(row);
         }
-        println!("Rays: {}", self.rays.len());
     }
 
     pub fn get_ray(&self, x: u32, y: u32) -> bool {
         if self.rays.is_empty() {
             return false;
         }
-        self.rays[y as usize][x as usize].hit
+        self.rays[(y * self.width + x) as usize].hit
     }
 }
 
@@ -65,18 +69,19 @@ impl Display {
     }
 
     pub fn render(&self, filename: &str) {
-        let mut image = RgbImage::new(self.camera.width as u32, self.camera.height as u32);
+        let mut image = RgbImage::new(self.camera.width, self.camera.height);
         for y in 0..self.camera.height {
             for x in 0..self.camera.width {
-                if self.camera.get_ray(x, y) {
-                    let ray = &self.camera.rays[y as usize][x as usize];
+                let idx = (y * self.camera.width + x) as usize;
+                if self.camera.rays[idx].hit {
+                    let ray = &self.camera.rays[idx];
                     image.put_pixel(
-                        x as u32,
-                        y as u32,
+                        x,
+                        y,
                         Rgb([ray.color.x as u8, ray.color.y as u8, ray.color.z as u8]),
                     );
                 } else {
-                    image.put_pixel(x as u32, y as u32, Rgb([0, 0, 0]));
+                    image.put_pixel(x, y, Rgb([0, 0, 0]));
                 }
             }
         }
