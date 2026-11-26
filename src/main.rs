@@ -2,8 +2,8 @@ mod render;
 mod utils;
 use rayon::prelude::*;
 use render::*;
-use std::io::{SeekFrom::Start, Write};
 use utils::*;
+use std::{os::unix::process::CommandExt, process::{Command, Stdio}};
 
 fn advance_ray(ray: &mut Ray, scene: &[BlackHole]) -> bool {
     for black_hole in scene {
@@ -94,7 +94,7 @@ fn advance_ray(ray: &mut Ray, scene: &[BlackHole]) -> bool {
 pub fn main() {
     let args = std::env::args().collect::<Vec<String>>();
 
-    let normal_view_pos = Vector3::new(0.0, -1.0, 0.0);
+    let normal_view_pos = Vector3::new(0.0, 0.0, 0.0);
 
     let count = args[1].parse::<u32>().unwrap_or(1);
     for i in 0..count {
@@ -107,8 +107,10 @@ pub fn main() {
                 angle
             );
         }
+        let black_hole_angle = (i as f64 - (count as f64 / 2.0)) * (1.0 / count as f64);
+        println!("Black hole angle: {}", black_hole_angle * 3.0);
         let scene = vec![BlackHole::new(
-            Vector3::new(0.0, 0.3, 10.0),
+            Vector3::new(0.0, black_hole_angle, 10.0),
             1.0,
             0.5,
             Vector3::new(239.0, 116.0, 8.0).brighten(0.15),
@@ -131,7 +133,7 @@ pub fn main() {
 
         let mut camera = Camera::new(
             normal_view_pos,
-            Vector3::new(0.0, 0.5, 6.0),
+            Vector3::new(0.0, 0.0, 6.0),
             width,
             height,
             1.57, // fov in radians
@@ -177,6 +179,9 @@ pub fn main() {
         println!("Done in {:.2}s", elapsed);
 
         let display = Display::new(camera);
-        display.render(&format!("output/{}.png", i));
+        display.render(&format!("output/{:03}.png", i));
     }
+
+    Command::new("magick -delay 10 -loop 0 output/*.png output.gif")
+        .exec();
 }
